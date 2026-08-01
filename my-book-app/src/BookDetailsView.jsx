@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Search, Sun, Moon, ExternalLink,
-  PlusCircle, FileSpreadsheet, Trash2, Save
+  PlusCircle, FileSpreadsheet, Trash2, Save, Loader2
 } from 'lucide-react';
 import { FALLBACK_COVER, exportQueueToExcel, digitsOnly, GENRE_OPTIONS, validateBookDraft } from './bookModel';
 import styles from './BookDetailsView.module.css';
@@ -30,6 +30,10 @@ const translations = {
     addToCart: 'Add to Cart',
     exportQueue: 'Procurement Export Queue',
     exportExcel: 'Export to Excel (.xlsx)',
+    exporting: 'Exporting...',
+    exportSuccess: 'File downloaded:',
+    exportError: 'Export failed. Please try again.',
+    exportEmpty: 'The export queue is empty — add books first.',
     standardFormat: 'Standard procurement format',
     items: 'items',
     pages: 'pages',
@@ -68,6 +72,10 @@ const translations = {
     addToCart: 'إضافة إلى السلة',
     exportQueue: 'قائمة التصدير والشراء',
     exportExcel: 'تصدير إلى إكسل (.xlsx)',
+    exporting: 'جاري إنشاء الملف...',
+    exportSuccess: 'تم تنزيل الملف:',
+    exportError: 'فشل التصدير. حاول مرة أخرى.',
+    exportEmpty: 'قائمة التصدير فاضية — أضف كتباً أولاً.',
     standardFormat: 'الصيغة القياسية لطلبات الشراء',
     items: 'عناصر',
     pages: 'صفحة',
@@ -119,6 +127,18 @@ const BookDetailsView = ({
   const [errors, setErrors] = useState({});
   const [isDirty, setIsDirty] = useState(false);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+
+  // حالة التصدير المرئية — محلية للشاشة عمداً (مثل حالة الرفع بشاشة البحث):
+  // idle | exporting | success | error | empty
+  const [exportStatus, setExportStatus] = useState('idle');
+  const [exportedFileName, setExportedFileName] = useState('');
+  const dismissTimerRef = useRef(null);
+  // حارس متزامن ضد النقرات المتتالية بنفس اللحظة — حالة React تُطبَّق بعد
+  // إعادة الرندر، فنقرتان سريعتان تقرآن قيمة قديمة؛ الـ ref يصد ذلك فوراً
+  const isExportingRef = useRef(false);
+
+  // تنظيف مؤقّت إخفاء البانر عند مغادرة الشاشة — بلا تحديث حالة بعد الإزالة
+  useEffect(() => () => clearTimeout(dismissTimerRef.current), []);
 
   // عند التنقل لكتاب مختلف: إعادة بناء نموذج التعديل من جديد.
   // نمط "تعديل الحالة أثناء الرندر" الموصى به من React بدل useEffect،
@@ -205,15 +225,32 @@ const BookDetailsView = ({
     if (onRemoveFromQueue) onRemoveFromQueue(id);
   };
 
-  // تصدير قائمة الشراء إلى ملف .xlsx حقيقي (ينزّله المتصفح مباشرة)
+  // تصدير قائمة الشراء إلى ملف .xlsx حقيقي (ينزّله المتصفح مباشرة).
+  // منطق التصدير نفسه (exportQueueToExcel) بدون أي تغيير — هنا فقط الحالة المرئية.
   const handleExport = async () => {
+    if (isExportingRef.current) return; // حماية من النقر المزدوج/المتكرر
+    isExportingRef.current = true;
+
+    clearTimeout(dismissTimerRef.current);
+    setExportStatus('exporting');
+
     try {
       const result = await exportQueueToExcel(exportQueue);
-      // حالة تحميل/نجاح مرئية للتصدير لسا مرحلة مستقلة بالخارطة
-      console.log('Export complete:', result.fileName);
+      setExportedFileName(result.fileName);
+      setExportStatus('success');
     } catch (err) {
-      console.warn('Export failed:', err.message);
+      if (err.message === 'EMPTY_QUEUE') {
+        // قاعدة "القائمة الفاضية" تعيش بدالة التصدير وحدها — الواجهة تترجمها فقط
+        setExportStatus('empty');
+      } else {
+        console.warn('Export failed:', err.message);
+        setExportStatus('error');
+      }
+    } finally {
+      isExportingRef.current = false;
     }
+
+    dismissTimerRef.current = setTimeout(() => setExportStatus('idle'), 4000);
   };
 
   return (
@@ -461,9 +498,33 @@ const BookDetailsView = ({
           </div>
 
           <div className={styles.queueFooter}>
-            <button type="button" className={styles.exportExcelBtn} onClick={handleExport}>
-              <FileSpreadsheet size={18} />
-              <span>{t.exportExcel}</span>
+            {exportStatus === 'success' && (
+              <div className={`${styles.exportBanner} ${styles.exportBannerSuccess}`}>
+                {t.exportSuccess} {exportedFileName}
+              </div>
+            )}
+            {exportStatus === 'error' && (
+              <div className={`${styles.exportBanner} ${styles.exportBannerError}`}>
+                {t.exportError}
+              </div>
+            )}
+            {exportStatus === 'empty' && (
+              <div className={`${styles.exportBanner} ${styles.exportBannerWarning}`}>
+                {t.exportEmpty}
+              </div>
+            )}
+            <button
+              type="button"
+              className={styles.exportExcelBtn}
+              onClick={handleExport}
+              disabled={exportStatus === 'exporting'}
+            >
+              {exportStatus === 'exporting' ? (
+                <Loader2 size={18} className={styles.spinner} />
+              ) : (
+                <FileSpreadsheet size={18} />
+              )}
+              <span>{exportStatus === 'exporting' ? t.exporting : t.exportExcel}</span>
             </button>
             <span className={styles.standardText}>{t.standardFormat}</span>
           </div>
