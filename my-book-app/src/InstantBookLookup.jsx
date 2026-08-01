@@ -87,6 +87,20 @@ const InstantBookLookup = ({
   const filterKeys = ['All Fields', 'Title', 'Author', 'ISBN'];
   const t = translations[lang] || translations.EN;
 
+  // مسح النتائج لحظة فراغ البحث — بنمط "تعديل الحالة أثناء الرندر" الموصى به
+  // من React (نفس نمط trackedBookId بشاشة المراجعة)، بدل setState داخل effect.
+  // الـ effect تحت يتكفّل فقط بالاستعلامات غير الفاضية.
+  const trimmedQuery = searchQuery.trim();
+  const [trackedQuery, setTrackedQuery] = useState(trimmedQuery);
+  if (trimmedQuery !== trackedQuery) {
+    setTrackedQuery(trimmedQuery);
+    if (!trimmedQuery) {
+      setBooks([]);
+      setLoading(false);
+      setConnectionIssue(false);
+    }
+  }
+
   // 1. تفعيل الماسح الضوئي للكاميرا
   useEffect(() => {
     let scanner = null;
@@ -147,14 +161,10 @@ const InstantBookLookup = ({
 
   // 3. البحث الرئيسي — طلب واحد فقط للباك-إند، يرجع كتباً مطبّعة جاهزة للعرض.
   //    كل منطق المصادر/الدمج/قرار الـ AI صار بالسيرفر (orchestration.service.js).
+  //    الاستعلام الفاضي يُعالَج أعلاه وقت الرندر — هنا نتجاهله فقط.
   useEffect(() => {
     const trimmedQuery = searchQuery.trim();
-    if (!trimmedQuery) {
-      setBooks([]);
-      setLoading(false);
-      setConnectionIssue(false);
-      return;
-    }
+    if (!trimmedQuery) return;
 
     const controller = new AbortController();
 
