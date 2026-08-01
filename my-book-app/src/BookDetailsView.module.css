@@ -44,11 +44,6 @@
   color: #1f2328;
 }
 
-.lightTheme .checksumBanner {
-  background-color: #ffffff;
-  border-color: #00bfa5;
-}
-
 .lightTheme .footer {
   background-color: #f6f8fa;
   border-top-color: #d0d7de;
@@ -356,6 +351,26 @@
   cursor: pointer;
 }
 
+/* نبذة الكتاب — نفس لغة fieldInput البصرية لكن متعددة الأسطر */
+.fieldTextarea {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  outline: none;
+  color: #f0f6fc;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  padding: 6px 8px;
+  width: 100%;
+  resize: vertical;
+}
+
+.fieldTextarea:focus {
+  border-color: #00bfa5;
+}
+
 .fieldError {
   border-bottom-color: #f85149 !important;
 }
@@ -371,6 +386,12 @@
 }
 
 .lightTheme .fieldSelect {
+  background: #ffffff;
+  border-color: #d0d7de;
+  color: #1f2328;
+}
+
+.lightTheme .fieldTextarea {
   background: #ffffff;
   border-color: #d0d7de;
   color: #1f2328;
@@ -474,33 +495,6 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-}
-
-.checksumBanner {
-  background-color: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 10px;
-  padding: 14px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.checksumText {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  color: #8b949e;
-}
-
-.checksumBadge {
-  background-color: rgba(0, 191, 165, 0.15);
-  color: #00bfa5;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 6px;
 }
 
 /* Right Column */

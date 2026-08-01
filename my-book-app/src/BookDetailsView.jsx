@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   ArrowLeft, Search, Sun, Moon, ExternalLink,
-  PlusCircle, CheckCircle2, FileSpreadsheet, Trash2, Save
+  PlusCircle, FileSpreadsheet, Trash2, Save
 } from 'lucide-react';
 import { FALLBACK_COVER, exportQueueToExcel, digitsOnly, GENRE_OPTIONS, validateBookDraft } from './bookModel';
 import styles from './BookDetailsView.module.css';
@@ -14,6 +14,7 @@ const translations = {
     coreFields: 'Parsed System Core Fields',
     labels: {
       title: 'BOOK TITLE',
+      description: 'BOOK DESCRIPTION',
       author: 'AUTHOR NAME',
       isbn: 'ISBN / BARCODE',
       pageCount: 'PAGE COUNT',
@@ -26,7 +27,6 @@ const translations = {
     selectGenre: 'Select genre...',
     openImage: 'Open Direct Image Link',
     highRes: 'Image Quality: High Resolution',
-    checksum: 'Source database validation successful. Query matches standard.',
     addToCart: 'Add to Cart',
     exportQueue: 'Procurement Export Queue',
     exportExcel: 'Export to Excel (.xlsx)',
@@ -52,6 +52,7 @@ const translations = {
     coreFields: 'البيانات الأساسية للنظام',
     labels: {
       title: 'عنوان الكتاب',
+      description: 'نبذة عن الكتاب',
       author: 'اسم المؤلف',
       isbn: 'الرقم المعياري / الباركود',
       pageCount: 'عدد الصفحات',
@@ -64,7 +65,6 @@ const translations = {
     selectGenre: 'اختر التصنيف...',
     openImage: 'فتح رابط الصورة المباشر',
     highRes: 'دقة الصورة: عالية الجودة',
-    checksum: 'تم التحقق من قاعدة البيانات بنجاح. الاستعلام مطابق للمعيار.',
     addToCart: 'إضافة إلى السلة',
     exportQueue: 'قائمة التصدير والشراء',
     exportExcel: 'تصدير إلى إكسل (.xlsx)',
@@ -89,6 +89,7 @@ const translations = {
 // يبني نموذج تعديل (Draft) من كائن الكتاب الموحّد — نصوص خام مناسبة لحقول الإدخال
 const buildDraftFromBook = (book) => ({
   title: book?.title || '',
+  description: book?.description || '',
   authorsText: book?.authors ? book.authors.join(', ') : '',
   isbn: book?.isbn || '',
   pageCount: book?.pageCount ? String(book.pageCount) : '',
@@ -144,6 +145,7 @@ const BookDetailsView = ({
   const handleSave = () => {
     const candidate = {
       title: draft.title.trim(),
+      description: draft.description.trim(),
       authors: draft.authorsText,
       isbn: digitsOnly(draft.isbn),
       pageCount: draft.pageCount,
@@ -163,6 +165,7 @@ const BookDetailsView = ({
     const updatedBook = {
       ...book,
       title: candidate.title,
+      description: candidate.description,
       authors: candidate.authors.split(',').map((a) => a.trim()).filter(Boolean),
       isbn: candidate.isbn,
       pageCount: candidate.pageCount !== '' ? Number(candidate.pageCount) : 0,
@@ -310,6 +313,17 @@ const BookDetailsView = ({
               {errors.title && <p className={styles.fieldErrorText}>{t.errors[errors.title]}</p>}
             </div>
 
+            {/* نبذة الكتاب — عمود B بقالب التصدير؛ فاضية لو ما وفرها مصدر موثوق، والمستخدم يكملها */}
+            <div className={`${styles.fieldCard} ${styles.fullWidth}`}>
+              <label>{t.labels.description}</label>
+              <textarea
+                rows={4}
+                className={styles.fieldTextarea}
+                value={draft.description}
+                onChange={(e) => handleFieldChange('description', e.target.value)}
+              />
+            </div>
+
             <div className={styles.fieldCard}>
               <label>{t.labels.author}</label>
               <input
@@ -415,13 +429,6 @@ const BookDetailsView = ({
             <span>{t.saveChanges}</span>
           </button>
 
-          <div className={styles.checksumBanner}>
-            <div className={styles.checksumText}>
-              <CheckCircle2 size={18} color="#00bfa5" />
-              <span>{t.checksum}</span>
-            </div>
-            <span className={styles.checksumBadge}>● CHECKSUM: PASS</span>
-          </div>
         </div>
 
         {/* العمود الأيمن: قائمة التصدير Excel */}

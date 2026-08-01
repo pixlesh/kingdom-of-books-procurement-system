@@ -166,7 +166,10 @@ export function parseUploadedFileMock(file) {
         return;
       }
 
-      // Mock: نولّد عنوان معقول من اسم الملف لحد ربط الاستخراج الحقيقي
+      // العنوان الوحيد المسموح اقتراحه: مشتق من اسم ملف المستخدم نفسه (تلميح
+      // من مصدر حقيقي يراجعه المستخدم فوراً — قرار مؤكد). كل الحقول الأخرى
+      // تبقى فاضية فعلاً: لا سنة ولا تصنيف ولا أي قيمة مخترعة، حسب قاعدة
+      // "لا اختلاق أبداً" — المستخدم يكمّلها بشاشة المراجعة.
       const cleanTitle = file.name
         .replace(/\.[^/.]+$/, '')
         .replace(/[_-]+/g, ' ')
@@ -176,8 +179,6 @@ export function parseUploadedFileMock(file) {
         createBook({
           source: BOOK_SOURCE.UPLOADED_FILE,
           title: cleanTitle || 'Untitled Upload',
-          publishedYear: new Date().getFullYear(),
-          genre: 'Uploaded',
         })
       );
     }, simulatedDelay);
