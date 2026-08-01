@@ -20,49 +20,74 @@ src/
 ├── index.js              # entry point — starts the server
 ├── app.js                 # Express app: middleware, route mounting, error handling
 ├── config/env.js          # single source of truth for environment variables
+├── models/bookModel.js    # normalization into the unified Book Model (⚠️ deliberate
+│                            duplicate of the frontend's normalizers — Decision D5;
+│                            any rule change must be applied in BOTH copies)
 ├── routes/                # URL → controller mapping only, no logic
 ├── controllers/           # request/response handling, delegates to services
 ├── services/               # one file per external API — the only place that calls fetch()
+│   └── orchestration.service.js  # ⭐ the actual search product logic: concurrent
+│                                    query, merge, dedupe, AI-fallback decision
 └── middleware/errorHandler.js
 ```
 
 Layering: **routes → controllers → services**. Each external API has exactly one service
 file that owns its request shape and its key. Controllers never call `fetch()` directly.
+`orchestration.service.js` calls the per-API services (never `fetch()` itself) and is the
+single auditable place that decides what counts as a good result and when AI may suggest.
 
 ## Endpoints (current)
 
-| Method | Path | Mirrors (frontend today) | Status |
+| Method | Path | Purpose | Status |
 |---|---|---|---|
-| GET | `/api/health` | — | ✅ working |
-| GET | `/api/search/google-books?q=&maxResults=` | `InstantBookLookup.jsx`'s direct Google Books call | ✅ working (needs a real key in `.env`) |
-| GET | `/api/search/open-library?q=\|title=\|author=&limit=` | `fetchFromOpenLibrary()` | ✅ working, no key needed |
-| POST | `/api/search/ai-suggest` `{ query }` | `fetchFromAI()` | ✅ working (needs a real key in `.env`) |
-| POST | `/api/upload/parse` | `parseUploadedFileMock()` | 🚧 stub — returns `501`, real OCR is Phase 4 |
+| GET | `/api/health` | liveness check | ✅ working |
+| GET | `/api/search?q=&filter=` | **⭐ unified orchestrated search — the endpoint the frontend will use** | ✅ working |
+| GET | `/api/search/google-books?q=&maxResults=` | legacy raw proxy | ⚠️ deprecated — kept until frontend wiring completes, then removed |
+| GET | `/api/search/open-library?q=\|title=\|author=&limit=` | legacy raw proxy | ⚠️ deprecated — same as above |
+| POST | `/api/search/ai-suggest` `{ query }` | legacy raw proxy | ⚠️ deprecated — same as above |
+| POST | `/api/upload/parse` | file parsing | 🚧 stub — returns `501`, real OCR is Phase 4 |
 
-All search endpoints return the **raw upstream JSON**, unmodified. Normalization into the
-unified Book Model (`createBook()` / `normalizeFromGoogleBooks()` etc.) stays in the
-frontend's `bookModel.js` for now — this backend intentionally does not duplicate that
-logic yet, to keep this phase scoped to "hide the keys" rather than "move business logic."
-That can change in Phase 2 of the backend roadmap if we want the aggregation itself
-server-side too (see note below).
+### `GET /api/search` — request/response contract
+
+`filter` is one of `All Fields` (default), `Title`, `Author`, `ISBN` — same values the
+frontend's filter chips already use. Response:
+
+```json
+{
+  "books": [ /* fully normalized unified Book Model objects — usable as-is */ ],
+  "source": "merged | ai | none",
+  "meta": {
+    "googleBooks": "ok | failed | skipped",
+    "openLibrary": "ok | failed",
+    "ai": "not_needed | ok | failed | skipped",
+    "counts": { "googleBooks": 0, "openLibrary": 0, "merged": 0 }
+  }
+}
+```
+
+Orchestration rules (confirmed business rules — do not reinterpret):
+
+1. Google Books and Open Library are queried **concurrently** (`Promise.allSettled`) —
+   one source failing or being unconfigured never blocks the other.
+2. Every raw result is normalized through `models/bookModel.js` before any other logic.
+3. Merge + dedupe: by ISBN first, then by lowercase title + first author. Google Books
+   records win duplicates (richer — only source trusted for `description`).
+4. **If at least one trusted book exists, those results are returned — AI is never called.**
+5. **Gemini runs only when both trusted sources return zero books**, suggests whole books
+   only, and its data is never merged into an existing trusted record. Missing fields on
+   trusted books stay empty for the human-review stage — never AI-filled.
+6. AI unavailable/failed = honest empty result (`source: "none"`), never an error page.
 
 ## What this phase deliberately does NOT do yet
 
-- **The frontend has not been touched.** It's still calling Google Books/Open Library/Gemini
-  directly with placeholder keys, exactly as before. Swapping those calls over to this
-  server is the next, separate step — done one source at a time so each swap is easy to
-  verify in isolation, per the incremental-replacement approach.
-- **No response aggregation/fallback chain server-side yet.** Today the frontend's
-  `resolveFallback()` logic (Google Books → Open Library → AI) stays client-side and will
-  keep working once each individual `fetch()` call is repointed at this server. A single
-  `/api/search` endpoint that does the fallback chain server-side is a reasonable future
-  step, but a bigger one — deliberately not bundled into this pass.
+- **The frontend has not been touched.** It still calls Google Books/Open Library/Gemini
+  directly with placeholder keys. Repointing it at `GET /api/search` is the next,
+  separate milestone.
 - **No OCR.** `/api/upload/parse` is a real route with a real controller and service file,
   but it always returns `501 Not Implemented` until Phase 4.
 
 ## Next step (not done in this pass)
 
-Repoint the frontend's three `fetch()` calls in `InstantBookLookup.jsx` at this server
-instead of the external APIs directly, one source at a time (Open Library first, since it
-needs no key and is the lowest-risk swap to verify). Each swap should be its own reviewed
-change, not a single big rewrite of the search logic.
+Repoint `InstantBookLookup.jsx` at `GET /api/search` (one request, already-normalized
+books), remove the client-side fallback chain and placeholder key constants, then delete
+the three deprecated proxy endpoints above.

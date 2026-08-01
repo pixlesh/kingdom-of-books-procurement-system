@@ -20,9 +20,9 @@ export const config = {
  */
 export function warnOnMissingKeys() {
   if (!config.googleBooksApiKey) {
-    console.warn('⚠️  GOOGLE_BOOKS_API_KEY is not set — /api/search/google-books will return 503.');
+    console.warn('⚠️  GOOGLE_BOOKS_API_KEY is not set — /api/search will skip Google Books (Open Library still works).');
   }
   if (!config.geminiApiKey) {
-    console.warn('⚠️  GEMINI_API_KEY is not set — /api/search/ai-suggest will return 503.');
+    console.warn('⚠️  GEMINI_API_KEY is not set — /api/search AI fallback is disabled.');
   }
 }

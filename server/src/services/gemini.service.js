@@ -3,8 +3,8 @@ import { config } from '../config/env.js';
 /**
  * نفس البرومبت وشرط "لا تختلق أبداً" اللي كان بكود الفرونت-إند تماماً —
  * انتقل هنا بدون أي تغيير بالمنطق، فقط المفتاح صار يعيش على السيرفر.
- * يرجّع استجابة Gemini الخام؛ استخلاص/تحويل النتيجة لصيغة الكتاب الموحّدة
- * (normalizeFromAI) يبقى بالفرونت-إند حالياً، بدون تكرار المنطق هنا.
+ * يرجّع استجابة Gemini الخام كما هي (تستخدمها نقطة ai-suggest القديمة).
+ * للاستهلاك الداخلي بالسيرفر استخدم suggestBooks تحت — ترجع اقتراحات مستخلصة.
  */
 export async function suggestFromAI(query) {
   if (!config.geminiApiKey) {
@@ -42,4 +42,24 @@ No markdown, no explanation, just the JSON.`,
   }
 
   return res.json();
+}
+
+/**
+ * يحوّل استجابة Gemini الخام إلى مصفوفة اقتراحات نظيفة [{title, author, year}].
+ * نفس منطق الاستخلاص اللي كان بالفرونت-إند (شيل أسوار ```json ثم JSON.parse) —
+ * انتقل للسيرفر عشان قرار "هل الاقتراح صالح؟" يُتَّخذ بمكان واحد قابل للتدقيق.
+ * أي استجابة مو JSON صالح أو مو مصفوفة = [] — أبداً لا نمرر بيانات مشوّهة.
+ */
+export async function suggestBooks(query) {
+  const data = await suggestFromAI(query);
+
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+  const cleanJson = rawText.replace(/```json|```/g, '').trim();
+
+  try {
+    const parsed = JSON.parse(cleanJson);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
