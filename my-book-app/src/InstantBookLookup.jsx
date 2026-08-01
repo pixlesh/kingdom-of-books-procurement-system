@@ -1,21 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { BookOpen, Search, Upload, Sparkles, Sun, Moon, Loader2, QrCode, X, Bot } from 'lucide-react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
-import {
-  normalizeFromGoogleBooks,
-  normalizeFromOpenLibrary,
-  normalizeFromAI,
-  parseUploadedFileMock,
-} from './bookModel';
+import { parseUploadedFileMock } from './bookModel';
 import styles from './InstantBookLookup.module.css';
 
-// 🔑 مفاتيح API الخاصة بك
-// ⚠️ مهم: هذين المفتاحين يجب نقلهما إلى ملف .env أو تمريرهما عبر backend/proxy
-// ولا يجب أبداً تركهما مكشوفين داخل كود الواجهة الأمامية.
-// إذا سبق ونشرت هذا الكود بأي مكان (بما فيه محادثة أو GitHub)، أعد توليد
-// (regenerate) المفتاحين فوراً من Google Cloud Console و Google AI Studio.
-const GOOGLE_BOOKS_API_KEY = 'YOUR_GOOGLE_BOOKS_API_KEY';
-const AI_API_KEY = 'YOUR_GEMINI_API_KEY'; // يجب أن يبدأ بـ AIza... من Google AI Studio
+// عنوان الباك-إند — البحث كله يمر من GET /api/search: السيرفر هو مصدر الحقيقة
+// الوحيد للاسترجاع (هو من يستعلم Google Books/Open Library/Gemini، يدمج،
+// ويرجّع كتباً مطبّعة جاهزة). ما فيه أي مفاتيح API بالفرونت-إند نهائياً.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 // 🌐 قاموس النصوص للترجمة
 const translations = {
@@ -153,92 +145,8 @@ const InstantBookLookup = ({
     }
   };
 
-  // 3. اقتراح AI — لا يُختلق أبداً. يرجّع مصفوفة فاضية إذا مو متأكد أو صار خطأ.
-  const fetchFromAI = async (query, signal) => {
-    try {
-      const res = await fetchWithRetry(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${AI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal,
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `You are checking a book database gap. The query was "${query}" and it returned NO results from Google Books or Open Library.
-Only respond if you are highly confident this is a real, published, verifiable book/author — do NOT guess or invent.
-If you are not certain it exists, respond with exactly: []
-If certain, respond ONLY with valid JSON array: [{"title": "...", "author": "...", "year": "..."}]
-No markdown, no explanation, just the JSON.`,
-                  },
-                ],
-              },
-            ],
-          }),
-        },
-        1,
-        1500
-      );
-
-      if (!res.ok) return [];
-
-      const data = await res.json();
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
-      const cleanJson = rawText.replace(/```json|```/g, '').trim();
-      const parsedBooks = JSON.parse(cleanJson);
-
-      if (!Array.isArray(parsedBooks) || parsedBooks.length === 0) return [];
-
-      return parsedBooks.map((b, index) => normalizeFromAI(b, index));
-    } catch (err) {
-      if (err.name === 'AbortError') throw err;
-      console.warn('AI suggestion unavailable:', err);
-      return []; // فشل تقني = نتيجة فاضية، مو بيانات مختلقة
-    }
-  };
-
-  // 4. Open Library Fallback
-  const fetchFromOpenLibrary = async (query, signal) => {
-    try {
-      const cleanQuery = encodeURIComponent(query);
-      let olEndpoint = `https://openlibrary.org/search.json?q=${cleanQuery}&limit=12`;
-      if (activeFilter === 'Title') olEndpoint = `https://openlibrary.org/search.json?title=${cleanQuery}&limit=12`;
-      if (activeFilter === 'Author') olEndpoint = `https://openlibrary.org/search.json?author=${cleanQuery}&limit=12`;
-      if (activeFilter === 'ISBN') {
-        const cleanIsbn = query.replace(/[^0-9X]/gi, '');
-        olEndpoint = `https://openlibrary.org/search.json?q=isbn:${cleanIsbn || cleanQuery}&limit=12`;
-      }
-
-      const res = await fetchWithRetry(olEndpoint, { signal });
-      if (!res.ok) return [];
-      const data = await res.json();
-
-      if (data.docs && data.docs.length > 0) {
-        return data.docs.map((doc) => normalizeFromOpenLibrary(doc, t.unknownAuthor));
-      }
-      return [];
-    } catch (e) {
-      if (e.name === 'AbortError') throw e;
-      return [];
-    }
-  };
-
-  // مسار مشترك: يُستدعى فقط عندما Google Books ما رجّع نتائج حقيقية
-  const resolveFallback = async (query, signal) => {
-    const openLibraryResults = await fetchFromOpenLibrary(query, signal);
-    if (openLibraryResults.length > 0) {
-      setConnectionIssue(false);
-      return openLibraryResults;
-    }
-
-    const aiResults = await fetchFromAI(query, signal);
-    // aiResults ممكن تكون فاضية — وهذا صحيح ومقصود، يعني ما فيه نتيجة حقيقية
-    return aiResults;
-  };
-
-  // 5. البحث الرئيسي
+  // 3. البحث الرئيسي — طلب واحد فقط للباك-إند، يرجع كتباً مطبّعة جاهزة للعرض.
+  //    كل منطق المصادر/الدمج/قرار الـ AI صار بالسيرفر (orchestration.service.js).
   useEffect(() => {
     const trimmedQuery = searchQuery.trim();
     if (!trimmedQuery) {
@@ -254,44 +162,23 @@ No markdown, no explanation, just the JSON.`,
       setLoading(true);
       setConnectionIssue(false);
       try {
-        let queryParam = '';
-        const cleanQuery = encodeURIComponent(trimmedQuery);
-
-        if (activeFilter === 'Title') {
-          queryParam = `intitle:${cleanQuery}`;
-        } else if (activeFilter === 'Author') {
-          queryParam = `inauthor:${cleanQuery}`;
-        } else if (activeFilter === 'ISBN') {
-          const cleanIsbn = trimmedQuery.replace(/[^0-9X]/gi, '');
-          queryParam = cleanIsbn ? `isbn:${cleanIsbn}` : cleanQuery;
-        } else {
-          queryParam = cleanQuery;
-        }
-
-        const googleEndpoint = `https://www.googleapis.com/books/v1/volumes?q=${queryParam}&maxResults=12&key=${GOOGLE_BOOKS_API_KEY}`;
-
-        const res = await fetchWithRetry(googleEndpoint, { signal: controller.signal }, 1, 800);
+        const url = `${API_BASE_URL}/api/search?q=${encodeURIComponent(trimmedQuery)}&filter=${encodeURIComponent(activeFilter)}`;
+        const res = await fetchWithRetry(url, { signal: controller.signal }, 1, 800);
 
         if (!res.ok) {
-          // خطأ تقني حقيقي (403/503 بعد إعادة المحاولة) — ننبّه المستخدم بصراحة
+          // خطأ حقيقي من السيرفر بعد إعادة المحاولة — ننبّه المستخدم بصراحة
           setConnectionIssue(true);
-          const fallbackResults = await resolveFallback(trimmedQuery, controller.signal);
-          setBooks(fallbackResults);
+          setBooks([]);
           return;
         }
 
         const data = await res.json();
-
-        if (data.items && data.items.length > 0) {
-          const formattedBooks = data.items.map((item) =>
-            normalizeFromGoogleBooks(item, t.unknownAuthor)
-          );
-          setBooks(formattedBooks);
-        } else {
-          // Google Books رجّع بنجاح لكن بدون نتائج — بحث فعلي عن بديل حقيقي
-          const fallbackResults = await resolveFallback(trimmedQuery, controller.signal);
-          setBooks(fallbackResults);
-        }
+        setBooks(data.books || []);
+        // البانر يعكس الحالة الفعلية فقط: مصدر فشل فعلاً = مشكلة اتصال حقيقية.
+        // مصدر "skipped" (مفتاح غير مضبوط بالسيرفر) مو مشكلة اتصال — بلا بانر.
+        setConnectionIssue(
+          data.meta?.googleBooks === 'failed' || data.meta?.openLibrary === 'failed'
+        );
       } catch (error) {
         if (error.name !== 'AbortError') {
           console.error('Book search failed:', error);
@@ -311,7 +198,7 @@ No markdown, no explanation, just the JSON.`,
       clearTimeout(timer);
       controller.abort();
     };
-  }, [searchQuery, activeFilter, lang]);
+  }, [searchQuery, activeFilter]);
 
   // معالجة رفع الملف: تحليل (mock حالياً) -> تطبيع لنفس Book Model الموحّد
   // المستخدم بنتائج البحث -> تمرير للمستخدم لمراجعته في شاشة التفاصيل
@@ -542,7 +429,12 @@ No markdown, no explanation, just the JSON.`,
                     <div className={styles.bookDetails}>
                       <h4 className={styles.bookTitle}>{book.title}</h4>
                       <p className={styles.bookAuthor}>
-                        {book.authors ? book.authors.join(', ') : t.unknownAuthor}
+                        {/* التطبيع صار بالسيرفر بعلامة إنجليزية موحّدة — الترجمة هنا وقت العرض */}
+                        {book.authors?.length
+                          ? book.authors
+                              .map((a) => (a === 'Unknown Author' ? t.unknownAuthor : a))
+                              .join(', ')
+                          : t.unknownAuthor}
                       </p>
                       <span className={styles.bookDate}>{book.publishedYear || 'N/A'}</span>
                     </div>

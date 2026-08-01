@@ -1,20 +1,11 @@
 import { Router } from 'express';
-import {
-  unifiedSearch,
-  googleBooksSearch,
-  openLibrarySearch,
-  aiSuggest,
-} from '../controllers/search.controller.js';
+import { unifiedSearch } from '../controllers/search.controller.js';
 
 const router = Router();
 
-// نقطة البحث الموحّدة (orchestration) — هذه اللي يعتمدها الفرونت-إند
+// نقطة البحث الموحّدة (orchestration) — الفرونت-إند يطلبها وحدها.
+// نقاط الـ proxy القديمة (google-books / open-library / ai-suggest) حُذفت
+// بعد اكتمال ربط الفرونت-إند بهذه النقطة — ما عاد يستدعيها أي شيء.
 router.get('/', unifiedSearch);
-
-// نقاط الـ proxy القديمة — تبقى مؤقتاً لحين اكتمال ربط الفرونت-إند
-// بالنقطة الموحّدة، ثم تُحذف بمرحلة الربط (لا شيء يستدعيها حالياً)
-router.get('/google-books', googleBooksSearch);
-router.get('/open-library', openLibrarySearch);
-router.post('/ai-suggest', aiSuggest);
 
 export default router;

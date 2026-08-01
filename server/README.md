@@ -41,11 +41,12 @@ single auditable place that decides what counts as a good result and when AI may
 | Method | Path | Purpose | Status |
 |---|---|---|---|
 | GET | `/api/health` | liveness check | ✅ working |
-| GET | `/api/search?q=&filter=` | **⭐ unified orchestrated search — the endpoint the frontend will use** | ✅ working |
-| GET | `/api/search/google-books?q=&maxResults=` | legacy raw proxy | ⚠️ deprecated — kept until frontend wiring completes, then removed |
-| GET | `/api/search/open-library?q=\|title=\|author=&limit=` | legacy raw proxy | ⚠️ deprecated — same as above |
-| POST | `/api/search/ai-suggest` `{ query }` | legacy raw proxy | ⚠️ deprecated — same as above |
+| GET | `/api/search?q=&filter=` | **⭐ unified orchestrated search — the only endpoint the frontend uses** | ✅ working, wired to the frontend |
 | POST | `/api/upload/parse` | file parsing | 🚧 stub — returns `501`, real OCR is Phase 4 |
+
+The three legacy per-source proxy endpoints (`google-books`, `open-library`, `ai-suggest`)
+were removed once the frontend was repointed at the unified endpoint — nothing called
+them anymore, and keeping two search surfaces invites editing the wrong one.
 
 ### `GET /api/search` — request/response contract
 
@@ -78,16 +79,27 @@ Orchestration rules (confirmed business rules — do not reinterpret):
    trusted books stay empty for the human-review stage — never AI-filled.
 6. AI unavailable/failed = honest empty result (`source: "none"`), never an error page.
 
-## What this phase deliberately does NOT do yet
+## Frontend integration (done)
 
-- **The frontend has not been touched.** It still calls Google Books/Open Library/Gemini
-  directly with placeholder keys. Repointing it at `GET /api/search` is the next,
-  separate milestone.
+`InstantBookLookup.jsx` now makes exactly one request per search — `GET /api/search` —
+and renders the returned, already-normalized books directly. The client-side fallback
+chain, client-side normalization of search results, and the placeholder API key
+constants are gone from the frontend entirely.
+
+**Dev workflow is now two processes:** run `npm run dev` here (port 3001) *and*
+`npm run dev` in `my-book-app/` (port 5173). If the backend is down, search shows the
+connection-issue banner and no results — by design, never a crash.
+
+**Origins/ports are configuration, never code:** the backend's allowed frontend origin
+comes from `CLIENT_ORIGIN` in `.env` (default `http://localhost:5173`); the frontend's
+backend address comes from `VITE_API_BASE_URL` (see `my-book-app/.env.example`, default
+`http://localhost:3001`). If Vite ever runs on a different port, set `CLIENT_ORIGIN`
+accordingly — no code change.
+
+## Not done yet
+
 - **No OCR.** `/api/upload/parse` is a real route with a real controller and service file,
   but it always returns `501 Not Implemented` until Phase 4.
-
-## Next step (not done in this pass)
-
-Repoint `InstantBookLookup.jsx` at `GET /api/search` (one request, already-normalized
-books), remove the client-side fallback chain and placeholder key constants, then delete
-the three deprecated proxy endpoints above.
+- **Google Books contributes results only once a real `GOOGLE_BOOKS_API_KEY` lands in
+  `.env`** — until then `/api/search` reports it as `skipped` and serves Open Library.
+  Same for the Gemini fallback and `GEMINI_API_KEY`.
