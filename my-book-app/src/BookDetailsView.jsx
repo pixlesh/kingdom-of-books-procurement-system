@@ -3,7 +3,7 @@ import {
   ArrowLeft, Search, Sun, Moon, ExternalLink,
   PlusCircle, CheckCircle2, FileSpreadsheet, Trash2, Save
 } from 'lucide-react';
-import { FALLBACK_COVER, exportQueueToExcelMock, digitsOnly, GENRE_OPTIONS, validateBookDraft } from './bookModel';
+import { FALLBACK_COVER, exportQueueToExcel, digitsOnly, GENRE_OPTIONS, validateBookDraft } from './bookModel';
 import styles from './BookDetailsView.module.css';
 
 // 🌐 القاموس المترجم للواجهة الثانية
@@ -202,14 +202,14 @@ const BookDetailsView = ({
     if (onRemoveFromQueue) onRemoveFromQueue(id);
   };
 
-  // تصدير قائمة الشراء إلى إكسل — Mock حالياً، جاهز للاستبدال بمولّد حقيقي لاحقاً
+  // تصدير قائمة الشراء إلى ملف .xlsx حقيقي (ينزّله المتصفح مباشرة)
   const handleExport = async () => {
     try {
-      const result = await exportQueueToExcelMock(exportQueue);
-      // مؤقت لحد ما تتوفر حالة تحميل/نجاح مرئية بخطوة قادمة
-      console.log('Export ready (mock):', result);
+      const result = await exportQueueToExcel(exportQueue);
+      // حالة تحميل/نجاح مرئية للتصدير لسا مرحلة مستقلة بالخارطة
+      console.log('Export complete:', result.fileName);
     } catch (err) {
-      console.warn('Export failed (mock):', err.message);
+      console.warn('Export failed:', err.message);
     }
   };
 

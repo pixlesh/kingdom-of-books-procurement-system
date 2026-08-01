@@ -228,26 +228,120 @@ export function bookToExportRow(book) {
 }
 
 /**
- * Mock مؤقت لعملية توليد ملف الإكسل الفعلي.
- * ⚠️ لاستبدالها بمولّد حقيقي لاحقاً (مكتبة xlsx أو API سيرفر):
- * نفس التوقيع (queue) => Promise<{rows, fileName, exportedAt}>،
- * فقط نستبدل الجسم الداخلي. bookToExportRow نفسها ما تحتاج تتغير.
+ * نص عنوان البانر أعلى قالب المورد الرسمي — منسوخ حرفياً (بمدّاته) من الملف
+ * الحقيقي «قائمة المورد مملكة الكتب.xlsx» عشان الملف المُصدَّر يطابق شكله.
  */
-export function exportQueueToExcelMock(queue) {
-  return new Promise((resolve, reject) => {
-    const simulatedDelay = 900 + Math.random() * 600;
-    setTimeout(() => {
-      if (!queue || queue.length === 0) {
-        reject(new Error('EMPTY_QUEUE'));
-        return;
-      }
-      resolve({
-        rows: queue.map(bookToExportRow),
-        fileName: `export-${Date.now()}.xlsx`,
-        exportedAt: new Date().toISOString(),
-      });
-    }, simulatedDelay);
+const TEMPLATE_BANNER_TITLE =
+  'قائـــــــــــــــــــــــــــمة المـــــــــــــــــــــــــــــــــــــــورد مملكة الكتب';
+
+/** عروض الأعمدة A-J — منسوخة من القالب الحقيقي نفسه */
+const TEMPLATE_COLUMN_WIDTHS = [29.6, 74.6, 23.5, 41.7, 14.3, 20.0, 15.5, 20.7, 26.3, 20.7];
+
+/** صف الترويسة بالقالب الحقيقي (الصفوف 1-6 بانر مدموج، البيانات تبدأ من 8) */
+const TEMPLATE_HEADER_ROW = 7;
+
+/**
+ * يبني ملف الإكسل الفعلي بذاكرة المتصفح — مطابقاً لبنية قالب المورد الرسمي:
+ * شيت واحد RTL، بانر مدموج A1:J6، ترويسة بالصف 7 (بمفردات العمل المعتمدة،
+ * وليس أخطاء القالب الإملائية — قرار مؤكد)، والبيانات من الصف 8.
+ *
+ * أنواع الخلايا (قرارات عمل مؤكدة): ISBN رقم فعلي بتنسيق '0'، الصفحات
+ * والسعر أرقام، سنة الإصدار خلية تاريخ فعلية تعرض السنة فقط (yyyy)،
+ * صورة الغلاف رابط قابل للنقر. القيم الغائبة تبقى خلايا فاضية فعلاً —
+ * أبداً لا تُختلق. (مكتبة exceljs تُحمَّل ديناميكياً هنا فقط، عشان حجم
+ * حزمة التطبيق الأساسية ما يتأثر إلا عند التصدير الفعلي.)
+ */
+export async function buildExportWorkbook(queue) {
+  const excelModule = await import('exceljs');
+  const ExcelJS = excelModule.default ?? excelModule;
+
+  const rows = queue.map(bookToExportRow);
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('قائمة مورد مملكة الكتب', {
+    views: [{ rightToLeft: true }],
   });
+
+  sheet.columns = TEMPLATE_COLUMN_WIDTHS.map((width) => ({ width }));
+
+  // البانر المدموج أعلى القالب
+  sheet.mergeCells('A1:J6');
+  const banner = sheet.getCell('A1');
+  banner.value = TEMPLATE_BANNER_TITLE;
+  banner.alignment = { horizontal: 'center', vertical: 'middle' };
+  banner.font = { bold: true, size: 20 };
+
+  // الترويسة — بمفردات العمل المعتمدة من EXPORT_COLUMNS
+  const headerRow = sheet.getRow(TEMPLATE_HEADER_ROW);
+  EXPORT_COLUMNS.forEach((header, index) => {
+    const cell = headerRow.getCell(index + 1);
+    cell.value = header;
+    cell.font = { bold: true };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  });
+
+  // عمود الباركود بتنسيق رقمي — نفس تنسيق القالب الحقيقي ('0')
+  sheet.getColumn(3).numFmt = '0';
+
+  rows.forEach((row, rowIndex) => {
+    const excelRow = sheet.getRow(TEMPLATE_HEADER_ROW + 1 + rowIndex);
+    EXPORT_COLUMNS.forEach((columnKey, columnIndex) => {
+      const cell = excelRow.getCell(columnIndex + 1);
+      const value = row[columnKey];
+
+      // null أو '' = خلية فاضية فعلاً بالملف — القاعدة: لا اختلاق أبداً
+      if (value == null || value === '') return;
+
+      if (columnKey === 'تاريخ الإصدار') {
+        // خلية تاريخ فعلية تعرض السنة فقط (UTC لتفادي انزياح اليوم بالمناطق الزمنية)
+        cell.value = new Date(Date.UTC(value, 0, 1));
+        cell.numFmt = 'yyyy';
+      } else if (columnKey === 'صورة الغلاف' && String(value).startsWith('https://')) {
+        // رابط قابل للنقر يفتح الصورة مباشرة (قرار عمل مؤكد)
+        cell.value = { text: String(value), hyperlink: String(value) };
+        cell.font = { color: { argb: 'FF0563C1' }, underline: true };
+      } else {
+        cell.value = value; // الأرقام تبقى أرقاماً والنصوص نصوصاً كما أنتجها bookToExportRow
+      }
+    });
+  });
+
+  return { workbook, rows };
+}
+
+/**
+ * التصدير الفعلي لقائمة الشراء: يبني ملف .xlsx حقيقي وينزّله بالمتصفح.
+ * نفس عقد الـ mock السابق تماماً — (queue) => Promise<{rows, fileName, exportedAt}>
+ * ويرفض بـ EMPTY_QUEUE لو القائمة فاضية — فالمستدعي ما تغيّر إلا باسم الدالة.
+ */
+export async function exportQueueToExcel(queue) {
+  if (!queue || queue.length === 0) {
+    throw new Error('EMPTY_QUEUE');
+  }
+
+  const { workbook, rows } = await buildExportWorkbook(queue);
+
+  const exportedAt = new Date().toISOString();
+  const fileName = `قائمة المورد مملكة الكتب - ${exportedAt.slice(0, 10)}.xlsx`;
+
+  const buffer = await workbook.xlsx.writeBuffer();
+
+  // التنزيل يتطلب متصفحاً — الحارس يسمح بتشغيل نفس الدالة ببيئة Node للتحقق الآلي
+  if (typeof document !== 'undefined') {
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  return { rows, fileName, exportedAt };
 }
 
 /**
