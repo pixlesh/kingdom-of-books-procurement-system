@@ -1,0 +1,14 @@
+/* إلغاء أي هوامش افتراضية من المتصفح */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #0e1117;
+  overflow-x: hidden; /* لمنع السكرول الأفقي نهائياً */
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
