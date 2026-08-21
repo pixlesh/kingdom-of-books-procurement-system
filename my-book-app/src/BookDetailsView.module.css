@@ -143,40 +143,107 @@
   gap: 12px;
 }
 
+/* مبدّل اللغة ومبدّل الثيم — نسخ حرفية من ستايل شاشة البحث (المرجع البصري)
+   بنفس القيم بالوضعين الداكن والفاتح وبالاتجاهين */
 .langToggle {
-  display: flex;
-  background-color: #0d1117;
-  border: 1px solid #30363d;
+  position: relative;
+  width: 76px;
+  height: 32px;
   border-radius: 8px;
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  display: flex;
+  align-items: center;
   padding: 2px;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.lightTheme .langToggle {
+  background-color: #eaeef2;
+  border-color: #d0d7de;
+}
+
+.langSlider {
+  position: absolute;
+  top: 2px;
+  width: 34px;
+  height: 26px;
+  background-color: #00bfa5;
+  border-radius: 6px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+
+/* حركة المربع الأخضر المطلقة وحسابها للـ LTR و RTL */
+[dir="ltr"] .slideAr {
+  left: 2px;
+}
+
+[dir="ltr"] .slideEn {
+  left: 38px;
+}
+
+[dir="rtl"] .slideAr {
+  right: 2px;
+}
+
+[dir="rtl"] .slideEn {
+  right: 38px;
 }
 
 .langBtn {
-  background: transparent;
-  border: none;
-  color: #8b949e;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 6px;
-}
-
-.activeLang {
-  background-color: #00bfa5;
-  color: #0e1117;
-}
-
-.themeToggle {
-  background: #161b22;
-  border: 1px solid #30363d;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  /* القيمة المعروضة فعلياً بشاشة البحث (لون النص العام يغلب هناك على
+     #8b949e بسبب خصوصية المحدد) — نطابق الناتج المرئي لا النص المكتوب */
+  color: #f0f6fc;
+  border: none;
+  background: transparent;
   cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.lightTheme .langBtn {
+  color: #57606a;
+}
+
+.activeText {
+  color: #0e1117;
+}
+
+.lightTheme .activeText {
+  color: #ffffff;
+}
+
+.themeToggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.themeToggle:hover {
+  border-color: #8b949e;
+}
+
+.lightTheme .themeToggle {
+  background-color: #ffffff;
+  border-color: #d0d7de;
 }
 
 /* Main Layout Grid */
@@ -211,6 +278,18 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.coverUnavailable {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #8b949e;
+  font-size: 12px;
 }
 
 .openLinkBtn {
@@ -379,6 +458,13 @@
   font-size: 10px;
   color: #f85149;
   margin: 2px 0 0 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fieldSelectError {
+  border-color: #f85149 !important;
 }
 
 .lightTheme .fieldInput {
@@ -539,6 +625,9 @@
   overflow-y: auto;
 }
 
+/* بطاقة قائمة التصدير — قابلة للنقر لفتح تفاصيل الكتاب المحفوظة.
+   القابلية للنقر معلنة بأكثر من اللون: مؤشر يد + سهم فتح يتحرك عند
+   التحويم + إطار تركيز واضح للكيبورد */
 .queueCard {
   background-color: #0d1117;
   border: 1px solid #30363d;
@@ -547,6 +636,54 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.queueCard:hover {
+  border-color: #00bfa5;
+  background-color: rgba(0, 191, 165, 0.06);
+}
+
+.queueCard:focus-visible {
+  outline: 2px solid #00bfa5;
+  outline-offset: 2px;
+}
+
+.lightTheme .queueCard:hover {
+  border-color: #00bfa5;
+  background-color: rgba(0, 191, 165, 0.05);
+}
+
+.queueItemActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* سهم "افتح التفاصيل" — يتقدّم قليلاً مع التحويم، وينعكس اتجاهه بالعربية */
+.queueOpenIcon {
+  color: #8b949e;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.queueCard:hover .queueOpenIcon {
+  color: #00bfa5;
+  transform: translateX(2px);
+}
+
+[dir="rtl"] .queueOpenIcon {
+  transform: rotate(180deg);
+}
+
+[dir="rtl"] .queueCard:hover .queueOpenIcon {
+  transform: rotate(180deg) translateX(2px);
+}
+
+.lightTheme .queueOpenIcon {
+  color: #6e7781;
 }
 
 .queueDetails {
@@ -609,6 +746,82 @@
   cursor: not-allowed;
 }
 
+/* غلاف زر التصدير — مرجع تموضع لقائمة اختيار القالب */
+.exportMenuWrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* قائمة اختيار قالب التصدير — تفتح للأعلى فوق الزر عشان ما يقصها أسفل الشاشة */
+.exportMenu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  inset-inline: 0;
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  padding: 8px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: start;
+}
+
+.lightTheme .exportMenu {
+  background-color: #ffffff;
+  border-color: #d0d7de;
+  box-shadow: 0 12px 32px rgba(31, 35, 40, 0.15);
+}
+
+.exportMenuTitle {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #8b949e;
+  padding: 2px 6px;
+}
+
+.lightTheme .exportMenuTitle {
+  color: #6e7781;
+}
+
+.exportMenuItem {
+  background-color: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  color: #f0f6fc;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 12px;
+  cursor: pointer;
+  text-align: start;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.exportMenuItem:hover {
+  border-color: #00bfa5;
+  background-color: rgba(0, 191, 165, 0.08);
+}
+
+.exportMenuItem:focus-visible {
+  outline: 2px solid #00bfa5;
+  outline-offset: 2px;
+}
+
+.lightTheme .exportMenuItem {
+  background-color: #f6f8fa;
+  border-color: #d0d7de;
+  color: #1f2328;
+}
+
+.lightTheme .exportMenuItem:hover {
+  border-color: #00bfa5;
+  background-color: rgba(0, 191, 165, 0.06);
+}
+
 .spinner {
   animation: spin 1s linear infinite;
 }
@@ -655,6 +868,345 @@
   justify-content: center;
   font-size: 11px;
   color: #484f58;
+}
+
+/* ===== حقول المصدر الثابتة (للعرض فقط) ===== */
+
+/* بطاقة حقل مصدر — مظهر أهدأ من الحقول اليدوية ليتضح أنها ثابتة */
+.readonlyCard {
+  background-color: #11151c;
+  border-style: dashed;
+}
+
+.lightTheme .readonlyCard {
+  background-color: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+.fieldLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* شارة "بيانات المصدر" مع أيقونة قفل — إشارة غير لونية لثبات الحقل */
+.sourceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #8b949e;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.lightTheme .sourceBadge {
+  color: #6e7781;
+  border-color: #d0d7de;
+  background-color: #ffffff;
+}
+
+.readonlyValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: #c9d1d9;
+  padding: 2px 0;
+  min-height: 20px;
+  word-break: break-word;
+  cursor: default;
+}
+
+.readonlyTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.readonlyMultiline {
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.lightTheme .readonlyValue {
+  color: #424a53;
+}
+
+/* ===== حالة "بيانات مطلوبة ناقصة" (حقول المصدر) ===== */
+
+/* التمييز مو باللون وحده: حد + خلفية + أيقونة تحذير + نص صريح */
+.fieldCardMissing {
+  border-color: #d29922 !important;
+  border-style: solid;
+  background-color: rgba(210, 153, 34, 0.08);
+}
+
+.lightTheme .fieldCardMissing {
+  border-color: #bf8700 !important;
+  background-color: rgba(154, 103, 0, 0.06);
+}
+
+.fieldWarningText {
+  font-size: 11px;
+  color: #d29922;
+  margin: 2px 0 0 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.lightTheme .fieldWarningText {
+  color: #9a6700;
+}
+
+/* ===== السعر وضريبة القيمة المضافة ===== */
+
+.vatBreakdown {
+  margin-top: 10px;
+  border-top: 1px dashed #30363d;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lightTheme .vatBreakdown {
+  border-top-color: #d0d7de;
+}
+
+.vatRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #8b949e;
+}
+
+.lightTheme .vatRow {
+  color: #6e7781;
+}
+
+.vatValue {
+  font-weight: 600;
+  color: #c9d1d9;
+  direction: ltr;
+}
+
+.lightTheme .vatValue {
+  color: #424a53;
+}
+
+.vatTotalRow {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f0f6fc;
+}
+
+.lightTheme .vatTotalRow {
+  color: #1f2328;
+}
+
+.vatTotalValue {
+  color: #00bfa5;
+  font-weight: 700;
+  font-size: 14px;
+  direction: ltr;
+}
+
+/* ===== مفتاح وراية "يتطلب تدخلاً بشرياً" ===== */
+
+.sectionHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.interventionToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.interventionToggle:hover {
+  border-color: #d29922;
+  color: #d29922;
+}
+
+.lightTheme .interventionToggle {
+  border-color: #d0d7de;
+  color: #6e7781;
+}
+
+.lightTheme .interventionToggle:hover {
+  border-color: #bf8700;
+  color: #9a6700;
+}
+
+/* الحالة المفعّلة — واضحة بالشكل (تعبئة) وليست باللون فقط (أيقونة + نص) */
+.interventionToggleOn {
+  background-color: rgba(210, 153, 34, 0.15);
+  border-color: #d29922;
+  color: #d29922;
+}
+
+.lightTheme .interventionToggleOn {
+  background-color: rgba(154, 103, 0, 0.1);
+  border-color: #bf8700;
+  color: #9a6700;
+}
+
+/* مسار المفتاح والقرص — القرص ينزلق لنهاية المسار عند التفعيل.
+   flex-start/flex-end منطقيان اتجاهياً، فالانعكاس بالعربية تلقائي */
+.switchTrack {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  background-color: #30363d;
+  padding: 2px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+}
+
+.switchKnob {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #8b949e;
+  transition: background-color 0.2s ease;
+}
+
+.interventionToggleOn .switchTrack {
+  justify-content: flex-end;
+  background-color: #d29922;
+}
+
+.interventionToggleOn .switchKnob {
+  background-color: #0e1117;
+}
+
+.lightTheme .switchTrack {
+  background-color: #d0d7de;
+}
+
+.lightTheme .switchKnob {
+  background-color: #ffffff;
+}
+
+.lightTheme .interventionToggleOn .switchTrack {
+  background-color: #bf8700;
+}
+
+.lightTheme .interventionToggleOn .switchKnob {
+  background-color: #ffffff;
+}
+
+/* كلمة الحالة الصريحة (مفعّل/متوقف) — الحالة معلنة بالنص، مو باللون وحده */
+.switchStateWord {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.interventionBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #d29922;
+  background-color: rgba(210, 153, 34, 0.1);
+  color: #d29922;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.interventionBanner svg {
+  flex-shrink: 0;
+}
+
+.lightTheme .interventionBanner {
+  border-color: #bf8700;
+  background-color: rgba(154, 103, 0, 0.07);
+  color: #9a6700;
+}
+
+/* علامة "يحتاج مراجعة" على عناصر قائمة التصدير */
+.queueFlag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #d29922;
+  margin-top: 2px;
+}
+
+.lightTheme .queueFlag {
+  color: #9a6700;
+}
+
+/* ===== عداد السلة بالشريط العلوي ===== */
+
+.cartIndicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: #8b949e;
+  cursor: default;
+}
+
+.lightTheme .cartIndicator {
+  background-color: #f3f4f6;
+  border-color: #d0d7de;
+  color: #6e7781;
+}
+
+.cartCount {
+  background-color: #00bfa5;
+  color: #0e1117;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  box-sizing: border-box;
 }
 
 /* Responsive */

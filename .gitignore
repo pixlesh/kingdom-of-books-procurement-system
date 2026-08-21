@@ -8,6 +8,10 @@ node_modules/
 # The documented template stays tracked
 !.env.example
 
+# === Server data store — 254 catalog records + covers, ships via a persistent
+# disk on Render, never via git (see PROJECT_HANDOFF.md §7-8) ===
+server/data/
+
 # === Build outputs ===
 dist/
 dist-ssr/

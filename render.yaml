@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: kingdom-of-books-api
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    disk:
+      name: kob-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: GOOGLE_BOOKS_API_KEY
+        sync: false
+      - key: PUBLISHER_LIVE_SOURCES
+        value: "on"
+      - key: COVER_SERVE_BASE
+        sync: false
+
+  - type: web
+    name: kingdom-of-books-frontend
+    runtime: static
+    rootDir: my-book-app
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false

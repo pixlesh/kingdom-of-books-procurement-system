@@ -1,7 +1,7 @@
 # Kingdom of Books — API Server
 
 Lightweight Node.js + Express layer that owns every third-party API call (Google Books,
-Open Library, Gemini AI, and — later — OCR/file parsing) so the React frontend never
+Open Library, and — later — OCR/file parsing) so the React frontend never
 holds or exposes an API key.
 
 ## Setup
@@ -27,14 +27,14 @@ src/
 ├── controllers/           # request/response handling, delegates to services
 ├── services/               # one file per external API — the only place that calls fetch()
 │   └── orchestration.service.js  # ⭐ the actual search product logic: concurrent
-│                                    query, merge, dedupe, AI-fallback decision
+│                                    query, merge, dedupe
 └── middleware/errorHandler.js
 ```
 
 Layering: **routes → controllers → services**. Each external API has exactly one service
 file that owns its request shape and its key. Controllers never call `fetch()` directly.
 `orchestration.service.js` calls the per-API services (never `fetch()` itself) and is the
-single auditable place that decides what counts as a good result and when AI may suggest.
+single auditable place that decides what counts as a good result.
 
 ## Endpoints (current)
 
@@ -56,11 +56,10 @@ frontend's filter chips already use. Response:
 ```json
 {
   "books": [ /* fully normalized unified Book Model objects — usable as-is */ ],
-  "source": "merged | ai | none",
+  "source": "merged | none",
   "meta": {
     "googleBooks": "ok | failed | skipped",
     "openLibrary": "ok | failed",
-    "ai": "not_needed | ok | failed | skipped",
     "counts": { "googleBooks": 0, "openLibrary": 0, "merged": 0 }
   }
 }
@@ -73,11 +72,12 @@ Orchestration rules (confirmed business rules — do not reinterpret):
 2. Every raw result is normalized through `models/bookModel.js` before any other logic.
 3. Merge + dedupe: by ISBN first, then by lowercase title + first author. Google Books
    records win duplicates (richer — only source trusted for `description`).
-4. **If at least one trusted book exists, those results are returned — AI is never called.**
-5. **Gemini runs only when both trusted sources return zero books**, suggests whole books
-   only, and its data is never merged into an existing trusted record. Missing fields on
-   trusted books stay empty for the human-review stage — never AI-filled.
-6. AI unavailable/failed = honest empty result (`source: "none"`), never an error page.
+4. If at least one trusted book exists, those results are returned.
+5. **Book metadata comes from verifiable catalog sources only — there is no AI source
+   and no fallback that guesses.** If both sources fail or return zero usable results,
+   the honest answer is an empty list (`source: "none"`) with per-source status in
+   `meta` — never invented metadata, never an error page. Missing fields on trusted
+   books stay empty for the human-review stage.
 
 ## Frontend integration (done)
 
@@ -102,4 +102,3 @@ accordingly — no code change.
   but it always returns `501 Not Implemented` until Phase 4.
 - **Google Books contributes results only once a real `GOOGLE_BOOKS_API_KEY` lands in
   `.env`** — until then `/api/search` reports it as `skipped` and serves Open Library.
-  Same for the Gemini fallback and `GEMINI_API_KEY`.

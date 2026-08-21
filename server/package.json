@@ -3,16 +3,27 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Lightweight API layer for the Kingdom of Books internal tool. Owns all third-party API keys and requests (Google Books, Open Library, Gemini AI, future OCR) so the React frontend never talks to external services directly.",
+  "description": "Lightweight API layer for the Kingdom of Books internal tool. Owns all third-party API keys and requests (Google Books, Open Library, future OCR) so the React frontend never talks to external services directly.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "verify:isbn": "node scripts/verify-isbn-utils.mjs",
+    "verify:retry": "node scripts/verify-retry.mjs",
+    "verify:books": "node scripts/verify-real-books.mjs",
+    "verify:search": "node scripts/verify-title-search.mjs",
+    "catalog:import": "node scripts/catalog-import.mjs",
+    "covers:ingest": "node scripts/covers-ingest.mjs",
+    "evaluate:isbndb": "node scripts/evaluate-isbndb.mjs",
+    "evaluate:crossref": "node scripts/evaluate-crossref.mjs",
+    "test": "node scripts/verify-isbn-utils.mjs && node scripts/verify-retry.mjs"
   },
   "dependencies": {
-    "express": "^4.19.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "morgan": "^1.10.0"
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2",
+    "morgan": "^1.10.0",
+    "playwright": "^1.62.1"
   }
 }

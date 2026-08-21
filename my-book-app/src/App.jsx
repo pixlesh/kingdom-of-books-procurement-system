@@ -54,6 +54,10 @@ function App() {
   const [lang, setLang] = useState('EN');
   const [theme, setTheme] = useState('dark');
 
+  // استعلام بحث قادم من شاشة التفاصيل — يُمرَّر كقيمة أولية لشاشة البحث
+  // عند العودة إليها (الشاشة تُعاد بناؤها عند التنقل، فالقيمة الأولية تكفي)
+  const [searchSeed, setSearchSeed] = useState('');
+
   // قائمة التصدير المشتركة — عمداً هنا وليس داخل BookDetailsView، عشان تبقى
   // محفوظة أثناء التنقل بين الشاشات، ومستردّة من localStorage بين الجلسات.
   // الكتاب المحدد ومسودة التعديل لا يُخزَّنان عمداً — كل جلسة تبدأ من شاشة البحث.
@@ -87,6 +91,12 @@ function App() {
     setExportQueue((prev) => prev.filter((b) => b.id !== id));
   };
 
+  // بحث جديد من شاشة التفاصيل: نرجع لشاشة البحث بنفس تدفق البحث الموجود
+  const handleSearchAgain = (query) => {
+    setSearchSeed(query);
+    setSelectedBook(null);
+  };
+
   // حفظ التعديلات على كتاب: يحدّث الكتاب المعروض حالياً، وإذا كان موجود
   // مسبقاً بقائمة التصدير، يزامن النسخة المخزّنة هناك بنفس التعديلات
   const handleSaveBook = (updatedBook) => {
@@ -104,12 +114,17 @@ function App() {
           theme={theme}
           onToggleTheme={handleToggleTheme}
           onToggleLang={handleToggleLang}
+          initialQuery={searchSeed}
+          exportQueue={exportQueue}
+          onRemoveFromQueue={handleRemoveFromQueue}
         />
       ) : (
         /* الواجهة الثانية: تفاصيل الكتاب والبيانات */
         <BookDetailsView
           book={selectedBook}
           onBack={() => setSelectedBook(null)}
+          onSearch={handleSearchAgain}
+          onOpenBook={(book) => setSelectedBook(book)}
           lang={lang}
           theme={theme}
           onToggleTheme={handleToggleTheme}
