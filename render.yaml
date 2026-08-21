@@ -5,6 +5,7 @@ services:
     rootDir: server
     dockerfilePath: ./Dockerfile
     plan: starter
+    region: frankfurt
     disk:
       name: kob-data
       mountPath: /app/data
